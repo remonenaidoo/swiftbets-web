@@ -31,6 +31,12 @@ createServer(async (req, res) => {
   const route = `${req.method} ${url.pathname.replace(/\/[0-9a-f-]{36}$/, '/:id')}`;
 
   switch (route) {
+    case 'POST /__age-sessions': {
+      const user = users.get(String(url.searchParams.get('of')).toLowerCase());
+      const minutes = Number(url.searchParams.get('minutes'));
+      for (const s of sessions.values()) if (s.userId === user?.id) s.createdAt = new Date(Date.parse(s.createdAt) - minutes * 60_000).toISOString();
+      return send(res, 204);
+    }
     case 'GET /__emails':
       return send(res, 200, emails.get(url.searchParams.get('to')) ?? null);
     case 'POST /api/auth/register': {
@@ -70,6 +76,11 @@ createServer(async (req, res) => {
 
   if (!session) return problem(res, 401, 'unauthenticated', 'Sign in');
   const user = [...users.values()].find((u) => u.id === session.userId);
+  const sessionLimit = stateOf(user.id).sessionLimitMinutes;
+  if (sessionLimit && Date.now() - Date.parse(session.createdAt) >= sessionLimit * 60_000) {
+    sessions.delete(session.id);
+    return send(res, 401, { status: 401, code: 'session_time_limit', title: 'Session limit reached', correlationId: 'fake' }, { 'Set-Cookie': clear });
+  }
   switch (route) {
     case 'GET /api/session': {
       const limits = stateOf(user.id);
