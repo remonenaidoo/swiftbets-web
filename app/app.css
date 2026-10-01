@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+@import '@swiftbets/design-tokens/theme.css';
+@import '@swiftbets/design-tokens/swiftbets.css';
+
+body {
+  @apply bg-surface text-text font-sans antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
