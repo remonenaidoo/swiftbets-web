@@ -8,7 +8,7 @@ export const meta: Route.MetaFunction = () => [{ title: 'Sign in · SwiftBets' }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   if (await currentSession(context, request)) throw redirect('/account');
-  return null;
+  return { timeLimit: new URL(request.url).searchParams.get('ended') === 'time-limit' };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -20,10 +20,11 @@ export async function action({ request, context }: Route.ActionArgs) {
   return redirect('/account', { headers: cookieHeaders(response) });
 }
 
-export default function SignIn({ actionData }: Route.ComponentProps) {
+export default function SignIn({ loaderData, actionData }: Route.ComponentProps) {
   const busy = useNavigation().state === 'submitting';
   return (
     <Card title="Sign in">
+      {loaderData?.timeLimit ? <Notice tone="info">You reached the session time you set and were signed out. Take a break before you play again.</Notice> : null}
       <Form method="post" className="flex flex-col gap-md">
         <Field label="Email" name="email" type="email" autoComplete="email" defaultValue={actionData?.email} required />
         <Field label="Password" name="password" type="password" autoComplete="current-password" required />

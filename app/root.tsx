@@ -1,12 +1,15 @@
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from 'react-router';
+import { isRouteErrorResponse, Links, redirect, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from 'react-router';
 import type { Route } from './+types/root';
-import { currentSession } from './lib/gateway.server';
+import { cookieHeaders, gateway, type Session } from './lib/gateway.server';
 import { RealityCheck } from './components/RealityCheck';
 import { SiteHeader } from './components/SiteHeader';
 import './app.css';
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  return { session: await currentSession(context, request), nonce: context.nonce };
+  const response = await gateway<Session>(context, request, '/session');
+  // The gateway ends a session once the customer's own time limit is used up; say so on the sign-in page.
+  if (response.error?.code === 'session_time_limit') throw redirect('/account/sign-in?ended=time-limit', { headers: cookieHeaders(response) });
+  return { session: response.ok ? (response.data ?? null) : null, nonce: context.nonce };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

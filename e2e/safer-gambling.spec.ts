@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { register, signIn, uniqueEmail } from './helpers';
 
+let email: string;
+
 test.beforeEach(async ({ page }) => {
-  const email = uniqueEmail('rg');
+  email = uniqueEmail('rg');
   await register(page, email);
   await signIn(page, email);
   await expect(page).toHaveURL(/\/account$/);
@@ -71,4 +73,16 @@ test('a reality check appears at the interval the customer chose', async ({ page
   await expect(reminder).toContainText('You have been signed in for 10 minutes.');
   await reminder.getByRole('button', { name: 'Keep going' }).click();
   await expect(reminder).toBeHidden();
+});
+
+test('a used-up session limit signs the customer out and says why', async ({ page }) => {
+  await page.getByLabel('Session limit (minutes)').fill('15');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Session settings saved');
+
+  await page.request.post(`http://127.0.0.1:4011/__age-sessions?of=${encodeURIComponent(email)}&minutes=16`, { headers: { 'X-SwiftBets-Csrf': '1' } });
+  await page.goto('/account');
+
+  await expect(page).toHaveURL(/\/account\/sign-in\?ended=time-limit$/);
+  await expect(page.getByRole('status')).toContainText('You reached the session time you set');
 });
