@@ -59,6 +59,9 @@ export function cookieHeaders(response: GatewayResponse<unknown>): Headers {
 export interface Session {
   subject: string;
   roles: string[];
+  startedAt?: string;
+  sessionLimitMinutes?: number | null;
+  realityCheckMinutes?: number | null;
 }
 
 export async function currentSession(context: GatewayContext, request: Request): Promise<Session | null> {

@@ -55,3 +55,20 @@ test('a break needs confirming, then closes the account until it ends', async ({
   await page.getByRole('button', { name: 'Start my break' }).click();
   await expect(page.getByText(/You are on a break until/)).toBeVisible();
 });
+
+test('a reality check appears at the interval the customer chose', async ({ page }) => {
+  await page.clock.install();
+  await page.getByLabel('Remind me every (minutes)').fill('10');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Session settings saved');
+  await page.goto('/account');
+  await page.locator('dialog[data-armed]').waitFor({ state: 'attached' });
+
+  await page.clock.fastForward('10:05');
+
+  const reminder = page.getByRole('dialog', { name: 'Time check' });
+  await expect(reminder).toBeVisible();
+  await expect(reminder).toContainText('You have been signed in for 10 minutes.');
+  await reminder.getByRole('button', { name: 'Keep going' }).click();
+  await expect(reminder).toBeHidden();
+});

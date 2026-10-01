@@ -71,8 +71,17 @@ createServer(async (req, res) => {
   if (!session) return problem(res, 401, 'unauthenticated', 'Sign in');
   const user = [...users.values()].find((u) => u.id === session.userId);
   switch (route) {
-    case 'GET /api/session':
-      return send(res, 200, { subject: user.id, roles: ['Customer'], expiresAt: new Date(Date.now() + 600_000).toISOString() });
+    case 'GET /api/session': {
+      const limits = stateOf(user.id);
+      return send(res, 200, {
+        subject: user.id,
+        roles: ['Customer'],
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        startedAt: session.createdAt,
+        sessionLimitMinutes: limits.sessionLimitMinutes,
+        realityCheckMinutes: limits.realityCheckMinutes,
+      });
+    }
     case 'GET /api/profile':
       return send(res, 200, { userId: user.id, email: user.email, emailVerified: user.verified, currency: user.currency, status: 'Active' });
     case 'GET /api/session/devices':
