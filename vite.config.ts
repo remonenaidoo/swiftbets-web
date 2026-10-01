@@ -4,5 +4,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter()],
-  build: { cssCodeSplit: false },
+  // Its own asset path, so the gateway can route it alongside the app that still serves the rest of the site.
+  build: { cssCodeSplit: false, assetsDir: 'site-assets' },
 });

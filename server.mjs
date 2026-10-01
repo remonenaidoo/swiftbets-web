@@ -12,7 +12,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(compression());
 app.get('/healthz', (_req, res) => res.type('text').send('ok'));
-app.use('/assets', express.static('build/client/assets', { immutable: true, maxAge: '1y' }));
+app.use('/site-assets', express.static('build/client/site-assets', { immutable: true, maxAge: '1y' }));
 app.use(express.static('build/client', { maxAge: '1h' }));
 
 app.use((_req, res, next) => {
