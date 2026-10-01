@@ -10,4 +10,5 @@ export default [
   route('account/reset-password', 'routes/reset-password.tsx'),
   route('account/sign-out', 'routes/sign-out.tsx'),
   route('account/safer-gambling', 'routes/safer-gambling.tsx'),
+  route('account/wallet', 'routes/wallet.tsx'),
 ] satisfies RouteConfig;

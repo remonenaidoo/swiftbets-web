@@ -6,6 +6,8 @@ import express from 'express';
 
 const port = Number(process.env.PORT ?? 8080);
 const gatewayUrl = (process.env.GATEWAY_URL ?? 'http://gateway:8080').replace(/\/$/, '');
+// Payment providers' hosted checkout pages the deposit form may hand the browser on to.
+const checkoutOrigins = (process.env.CHECKOUT_ORIGINS ?? 'https://checkout.paystack.com').split(/\s+/).filter(Boolean).join(' ');
 const build = await import('./build/server/index.js');
 
 const app = express();
@@ -29,7 +31,7 @@ app.use((_req, res, next) => {
       "connect-src 'self'",
       "object-src 'none'",
       "base-uri 'none'",
-      "form-action 'self'",
+      `form-action 'self' ${checkoutOrigins}`,
       "frame-ancestors 'none'",
     ].join('; '),
   );

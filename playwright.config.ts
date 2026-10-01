@@ -12,6 +12,6 @@ export default defineConfig({
   ],
   webServer: [
     { command: 'node e2e/fake-gateway.mjs', url: 'http://127.0.0.1:4011/__emails', reuseExistingServer: !process.env.CI },
-    { command: 'node server.mjs', url: 'http://127.0.0.1:4010/healthz', env: { PORT: '4010', GATEWAY_URL: 'http://127.0.0.1:4011' }, reuseExistingServer: !process.env.CI },
+    { command: 'node server.mjs', url: 'http://127.0.0.1:4010/healthz', env: { PORT: '4010', GATEWAY_URL: 'http://127.0.0.1:4011', CHECKOUT_ORIGINS: 'http://127.0.0.1:4011' }, reuseExistingServer: !process.env.CI },
   ],
 });

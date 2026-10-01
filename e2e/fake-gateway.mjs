@@ -8,6 +8,8 @@ const users = new Map();
 const sessions = new Map();
 const emails = new Map();
 const compliance = new Map();
+const wallets = new Map();
+const payments = new Map();
 const day = 24 * 60 * 60 * 1000;
 
 const send = (res, status, body, headers = {}) => {
@@ -36,6 +38,20 @@ createServer(async (req, res) => {
       const minutes = Number(url.searchParams.get('minutes'));
       for (const s of sessions.values()) if (s.userId === user?.id) s.createdAt = new Date(Date.parse(s.createdAt) - minutes * 60_000).toISOString();
       return send(res, 204);
+    }
+    case 'POST /__verify-identity': {
+      const user = users.get(String(url.searchParams.get('of')).toLowerCase());
+      if (user) user.kycVerified = true;
+      return send(res, 204);
+    }
+    case 'GET /__checkout/:id': {
+      const deposit = payments.get(url.pathname.split('/').pop());
+      if (deposit?.status === 'pending') {
+        deposit.status = 'succeeded';
+        deposit.completedAt = new Date().toISOString();
+        post(deposit.userId, deposit.currency, 'deposit', deposit.amount);
+      }
+      return send(res, 302, undefined, { Location: 'http://127.0.0.1:4010/account/wallet' });
     }
     case 'GET /__emails':
       return send(res, 200, emails.get(url.searchParams.get('to')) ?? null);
@@ -123,6 +139,31 @@ createServer(async (req, res) => {
       state.restrictions.push({ kind: body.kind, startsAt: new Date().toISOString(), endsAt: ends.toISOString(), reason: 'customer request' });
       return send(res, 200, view(user.id));
     }
+    case 'GET /api/me/wallet/accounts':
+      return send(res, 200, wallets.has(user.id) ? [accountView(user.id)] : []);
+    case 'GET /api/me/wallet/statement': {
+      if (!wallets.has(user.id)) return problem(res, 404, 'account_not_found', 'No account');
+      return send(res, 200, { account: accountView(user.id), lines: [...wallets.get(user.id).lines].reverse(), next: null });
+    }
+    case 'GET /api/me/payments':
+      return send(res, 200, [...payments.values()].filter((p) => p.userId === user.id).reverse().map(({ userId, ...p }) => p));
+    case 'POST /api/me/deposits': {
+      if (!(body.amount >= 1_000 && body.amount <= 5_000_000)) return problem(res, 422, 'amount_out_of_range', 'range');
+      const id = randomUUID();
+      payments.set(id, { kind: 'deposit', id, userId: user.id, amount: body.amount, currency: body.currency, status: 'pending', reason: null, createdAt: new Date().toISOString(), completedAt: null });
+      return send(res, 201, { paymentId: id, status: 'pending', checkoutUrl: `http://127.0.0.1:${port}/__checkout/${id}` });
+    }
+    case 'POST /api/me/withdrawals': {
+      if (!user.kycVerified) return problem(res, 422, 'kyc_required', 'kyc');
+      if (!(body.amount >= 5_000 && body.amount <= 10_000_000)) return problem(res, 422, 'amount_out_of_range', 'range');
+      if ((wallets.get(user.id)?.available ?? 0) < body.amount) return problem(res, 422, 'insufficient_funds', 'funds');
+      const id = randomUUID();
+      const review = body.amount > 500_000;
+      const status = review ? 'awaitingApproval' : 'paid';
+      post(user.id, body.currency, 'withdrawal', -body.amount);
+      payments.set(id, { kind: 'withdrawal', id, userId: user.id, amount: body.amount, currency: body.currency, status, reason: null, createdAt: new Date().toISOString(), completedAt: review ? null : new Date().toISOString() });
+      return send(res, 201, { withdrawalId: id, status, requiresApproval: review });
+    }
     case 'POST /api/session/logout':
       sessions.delete(session.id);
       return send(res, 204, undefined, { 'Set-Cookie': clear });
@@ -133,6 +174,18 @@ createServer(async (req, res) => {
     }
   }
 }).listen(port, () => console.log(`fake gateway on ${port}`));
+
+function post(userId, currency, kind, amount) {
+  const wallet = wallets.get(userId) ?? { currency, available: 0, lines: [] };
+  wallets.set(userId, wallet);
+  wallet.available += amount;
+  wallet.lines.push({ sequence: wallet.lines.length + 1, postingId: randomUUID(), kind, amount, availableAfter: wallet.available, reference: null, postedAt: new Date().toISOString() });
+}
+
+function accountView(userId) {
+  const w = wallets.get(userId);
+  return { accountId: userId, currency: w.currency, available: w.available, reserved: 0, bonus: 0 };
+}
 
 function stateOf(userId) {
   if (!compliance.has(userId)) compliance.set(userId, { limits: new Map(), restrictions: [], sessionLimitMinutes: null, realityCheckMinutes: null });
