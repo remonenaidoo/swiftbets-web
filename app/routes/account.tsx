@@ -1,4 +1,4 @@
-import { Form, redirect } from 'react-router';
+import { Form, Link, redirect } from 'react-router';
 import type { Route } from './+types/account';
 import { Card, Notice } from '../components/Form';
 import { cookieHeaders, currentSession, gateway } from '../lib/gateway.server';
@@ -49,6 +49,9 @@ export default function Account({ loaderData, actionData }: Route.ComponentProps
           <dt className="text-text-muted">Email confirmed</dt>
           <dd>{profile?.emailVerified ? 'Yes' : 'Not yet'}</dd>
         </dl>
+        <Link to="/account/safer-gambling" className="font-semibold text-accent underline">
+          Safer gambling: limits, session time and breaks
+        </Link>
       </Card>
 
       <section aria-labelledby="devices-title" className="rounded-lg border border-border bg-surface-raised p-lg">

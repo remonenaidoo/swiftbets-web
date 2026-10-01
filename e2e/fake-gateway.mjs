@@ -7,6 +7,8 @@ const port = Number(process.env.FAKE_GATEWAY_PORT ?? 4011);
 const users = new Map();
 const sessions = new Map();
 const emails = new Map();
+const compliance = new Map();
+const day = 24 * 60 * 60 * 1000;
 
 const send = (res, status, body, headers = {}) => {
   res.writeHead(status, { 'Content-Type': body === undefined ? 'text/plain' : 'application/json', ...headers });
@@ -84,10 +86,66 @@ createServer(async (req, res) => {
     case 'DELETE /api/session/devices':
       for (const [id, s] of sessions) if (s.userId === user.id) sessions.delete(id);
       return send(res, 204, undefined, { 'Set-Cookie': clear });
+    case 'GET /api/me/compliance':
+      return send(res, 200, view(user.id));
+    case 'PUT /api/me/session-settings': {
+      const state = stateOf(user.id);
+      const bad = (v, lo, hi) => v !== null && (v < lo || v > hi);
+      if (bad(body.sessionLimitMinutes, 15, 1440)) return problem(res, 400, 'invalid_session_limit', 'bad');
+      if (bad(body.realityCheckMinutes, 10, 240)) return problem(res, 400, 'invalid_reality_check', 'bad');
+      Object.assign(state, { sessionLimitMinutes: body.sessionLimitMinutes, realityCheckMinutes: body.realityCheckMinutes });
+      return send(res, 200, view(user.id));
+    }
+    case 'POST /api/me/exclusions': {
+      const state = stateOf(user.id);
+      if (state.restrictions.length) return problem(res, 422, 'already_excluded', 'excluded');
+      const ends = body.kind === 'selfExclusion' ? new Date(Date.now() + body.months * 30 * day) : new Date(Date.now() + body.days * day);
+      state.restrictions.push({ kind: body.kind, startsAt: new Date().toISOString(), endsAt: ends.toISOString(), reason: 'customer request' });
+      return send(res, 200, view(user.id));
+    }
     case 'POST /api/session/logout':
       sessions.delete(session.id);
       return send(res, 204, undefined, { 'Set-Cookie': clear });
-    default:
+    default: {
+      const limit = /^(PUT|DELETE) \/api\/me\/limits\/(deposit|stake|loss)\/(day|week|month)$/.exec(route);
+      if (limit) return changeLimit(res, user.id, limit[1], limit[2], limit[3], body);
       return problem(res, 404, 'not_found', `No route ${route}`);
+    }
   }
 }).listen(port, () => console.log(`fake gateway on ${port}`));
+
+function stateOf(userId) {
+  if (!compliance.has(userId)) compliance.set(userId, { limits: new Map(), restrictions: [], sessionLimitMinutes: null, realityCheckMinutes: null });
+  return compliance.get(userId);
+}
+
+function view(userId) {
+  const state = stateOf(userId);
+  return {
+    limits: [...state.limits.values()],
+    restrictions: state.restrictions,
+    sessionLimitMinutes: state.sessionLimitMinutes,
+    realityCheckMinutes: state.realityCheckMinutes,
+    kycStatus: 'notStarted',
+    excluded: state.restrictions.length > 0,
+  };
+}
+
+// Compliance's rule in miniature: lower at once, raise or remove after 24 hours.
+function changeLimit(res, userId, method, kind, period, body) {
+  const state = stateOf(userId);
+  const key = `${kind}-${period}`;
+  const current = state.limits.get(key);
+  if (method === 'DELETE') {
+    if (!current) return problem(res, 404, 'limit_not_found', 'none');
+    state.limits.set(key, { ...current, pendingAmount: null, pendingEffectiveAt: new Date(Date.now() + day).toISOString(), pendingRemoval: true });
+    return send(res, 200, view(userId));
+  }
+  if (!(body.amount > 0)) return problem(res, 400, 'invalid_limit', 'bad');
+  if (!current || body.amount <= current.amount) {
+    state.limits.set(key, { kind, period, amount: body.amount, currency: body.currency, pendingAmount: null, pendingEffectiveAt: null, pendingRemoval: false });
+  } else {
+    state.limits.set(key, { ...current, pendingAmount: body.amount, pendingEffectiveAt: new Date(Date.now() + day).toISOString(), pendingRemoval: false });
+  }
+  return send(res, 200, view(userId));
+}
