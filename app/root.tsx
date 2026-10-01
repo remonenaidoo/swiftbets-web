@@ -1,6 +1,7 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from 'react-router';
 import type { Route } from './+types/root';
 import { currentSession } from './lib/gateway.server';
+import { RealityCheck } from './components/RealityCheck';
 import { SiteHeader } from './components/SiteHeader';
 import './app.css';
 
@@ -21,6 +22,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <SiteHeader signedIn={!!data?.session} />
         <main className="mx-auto w-full max-w-2xl px-md py-lg">{children}</main>
+        {data?.session?.startedAt && data.session.realityCheckMinutes ? (
+          <RealityCheck startedAt={data.session.startedAt} intervalMinutes={data.session.realityCheckMinutes} sessionLimitMinutes={data.session.sessionLimitMinutes ?? null} />
+        ) : null}
         <ScrollRestoration nonce={data?.nonce} />
         <Scripts nonce={data?.nonce} />
       </body>
