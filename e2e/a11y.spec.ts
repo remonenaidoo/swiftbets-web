@@ -16,6 +16,14 @@ for (const path of publicPages) {
   });
 }
 
+test('the safer gambling page has no serious accessibility violations', async ({ page }) => {
+  const email = uniqueEmail('a11y-rg');
+  await register(page, email);
+  await signIn(page, email);
+  await page.goto('/account/safer-gambling');
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
 test('the account page has no serious accessibility violations', async ({ page }) => {
   const email = uniqueEmail('a11y');
   await register(page, email);
