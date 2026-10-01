@@ -16,6 +16,8 @@ async function deposit(page: import('@playwright/test').Page, amount: string) {
   await page.getByLabel(/^Deposit amount/).fill(amount);
   await page.getByRole('button', { name: 'Deposit', exact: true }).click();
   await expect(page).toHaveURL(/\/account\/wallet$/);
+  // The provider sends the browser back with a full page load; let it hydrate before the next click.
+  await page.waitForLoadState('networkidle');
 }
 
 test('a deposit goes through checkout and lands in the balance and statement', async ({ page }) => {
