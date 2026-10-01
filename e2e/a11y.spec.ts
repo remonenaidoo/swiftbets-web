@@ -31,3 +31,17 @@ test('the account page has no serious accessibility violations', async ({ page }
   await expect(page).toHaveURL(/\/account$/);
   expect(await seriousViolations(page)).toEqual([]);
 });
+
+test('the wallet page with a statement has no serious accessibility violations', async ({ page }) => {
+  const email = uniqueEmail('a11y-wallet');
+  await register(page, email);
+  await signIn(page, email);
+  await expect(page).toHaveURL(/\/account$/);
+  await page.goto('/account/wallet');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel(/^Deposit amount/).fill('100');
+  await page.getByRole('button', { name: 'Deposit', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /^Statement/ })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  expect(await seriousViolations(page)).toEqual([]);
+});

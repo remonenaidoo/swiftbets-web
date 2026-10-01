@@ -49,6 +49,9 @@ export default function Account({ loaderData, actionData }: Route.ComponentProps
           <dt className="text-text-muted">Email confirmed</dt>
           <dd>{profile?.emailVerified ? 'Yes' : 'Not yet'}</dd>
         </dl>
+        <Link to="/account/wallet" className="font-semibold text-accent underline">
+          Wallet: deposit, withdraw and statement
+        </Link>
         <Link to="/account/safer-gambling" className="font-semibold text-accent underline">
           Safer gambling: limits, session time and breaks
         </Link>
